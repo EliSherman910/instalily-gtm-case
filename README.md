@@ -18,7 +18,7 @@ This project is a lead generation prototype built for DuPont Tedlar's Graphics &
 2. Add your OpenAI API Key to a `.env` file in the root folder:
 
     ```env
-    OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    OPENAI_API_KEY=your-api-key-here
     ```
 
     > You can get your key from https://platform.openai.com/api-keys 
