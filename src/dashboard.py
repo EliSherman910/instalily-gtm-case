@@ -5,6 +5,7 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 import pyperclip
+import altair as alt
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -37,13 +38,51 @@ def main():
 
     # --- Sidebar: Company Selector ---
     companies = sorted(df["company"].unique())
-    selected_company = st.sidebar.selectbox("🏢 Select a company to view its contacts", ["None"] + companies)
+    selected_company = st.sidebar.selectbox("🏢 Select a company to view its contacts", ["None", "All"] + companies)
 
+    # --- Search and Filters ---
+    st.sidebar.subheader("🔎 Search & Filters")
+    search_term = st.sidebar.text_input("Search by name, title, or company")
+    outreach_filter = st.sidebar.selectbox("Filter by Outreach Status", ["All", "Sent", "Not Sent"])
+    followup_filter = st.sidebar.selectbox("Filter by Follow-Up Status", ["All", "Due", "Not Due"])
+
+    
     if selected_company == "None":
-        st.info("👈 Use the sidebar to select a company and view its associated leads. You can edit messages, track outreach, generate follow-ups, and manage each contact directly from this interface.")
+        st.info("👈 Use the sidebar to select a company or search across all leads.")
         return
+    company_df = df if selected_company == "All" else df[df["company"] == selected_company]
+    filtered_df = company_df.copy()
 
-    company_df = df[df["company"] == selected_company]
+    # Search filter
+    if search_term:
+        search_term = search_term.lower()
+        filtered_df = filtered_df[
+            filtered_df["name"].str.lower().str.contains(search_term) |
+            filtered_df["title"].str.lower().str.contains(search_term) |
+            filtered_df["company"].str.lower().str.contains(search_term)
+        ]
+
+    # Outreach status filter
+    if outreach_filter != "All":
+        updated_outreach = filtered_df["company"].copy()
+        for idx, row in filtered_df.iterrows():
+            sent_flag = f"sent_{idx}"
+            if isinstance(st.session_state.get(sent_flag), dict):
+                row["last_outreach_date"] = st.session_state[sent_flag]["last_outreach_date"]
+        sent_mask = filtered_df["last_outreach_date"].notna() & (filtered_df["last_outreach_date"].astype(str).str.strip() != "")
+        if outreach_filter == "Sent":
+            filtered_df = filtered_df[sent_mask]
+        elif outreach_filter == "Not Sent":
+            filtered_df = filtered_df[~sent_mask]
+
+    # Follow-up status filter
+    if followup_filter != "All":
+        today = datetime.now().date()
+        followup_dates = pd.to_datetime(filtered_df["next_followup_date"], errors="coerce")
+        if followup_filter == "Due":
+            filtered_df = filtered_df[followup_dates <= pd.to_datetime(today)]
+        elif followup_filter == "Not Due":
+            filtered_df = filtered_df[followup_dates > pd.to_datetime(today)]
 
     # --- Analytics ---
     st.sidebar.header("📊 Analytics")
@@ -51,7 +90,41 @@ def main():
     sent_count = 0
     followups_due = 0
 
-    for idx, row in company_df.iterrows():
+    # --- Charts ---
+    with st.container():
+        with st.spinner("Loading charts..."):
+            st.subheader("📈 Outreach Analytics")
+
+            chart_data = pd.DataFrame({
+                "Status": ["Sent", "Not Sent"],
+                "Count": [
+                    company_df["last_outreach_date"].notna().sum(),
+                    company_df["last_outreach_date"].isna().sum()
+                ]
+            })
+            chart = alt.Chart(chart_data).mark_bar().encode(
+                x=alt.X("Status", sort=None),
+                y="Count",
+                color="Status"
+            ).properties(width=400, height=300)
+            st.altair_chart(chart, use_container_width=True)
+
+            today = datetime.now().date()
+            followup_dates = pd.to_datetime(company_df["next_followup_date"], errors="coerce")
+            due_count = (followup_dates <= pd.to_datetime(today)).sum()
+            not_due_count = (followup_dates > pd.to_datetime(today)).sum()
+
+            st.subheader("📬 Follow-Up Status")
+            st.dataframe(pd.DataFrame({
+                "Follow-Up": ["Due", "Not Due"],
+                "Count": [due_count, not_due_count]
+            }))
+
+            
+
+        
+
+    for idx, row in filtered_df.iterrows():
         df_idx = row.name
 
         st.divider()
@@ -86,15 +159,29 @@ def main():
 
         if not outreach_sent:
             if st.button(f"✅ Mark as Sent ({row['name']})", key=f"sent_btn_{idx}"):
+                # Add to activity log
+                activity_entry = f"[{datetime.now()}] Marked {row['name']} ({row['title']}, {row['company']}) as contacted."
+                st.session_state.get('activity_log', []).append(activity_entry)
                 today = datetime.now().date()
-                if not isinstance(st.session_state.get(sent_flag), dict):
-                    st.session_state[sent_flag] = {
-                        "last_outreach_date": today.isoformat(),
-                        "next_followup_date": (today + timedelta(days=7)).isoformat()
-                    }
-                    st.success("Marked as sent. Follow-up scheduled in 7 days.")
-                    outreach_sent = True
-                    just_marked_sent = True
+                last_outreach = today.isoformat()
+                next_followup = (today + timedelta(days=7)).isoformat()
+
+                st.session_state[sent_flag] = {
+                    "last_outreach_date": last_outreach,
+                    "next_followup_date": next_followup
+                }
+
+                row["last_outreach_date"] = last_outreach
+                row["next_followup_date"] = next_followup
+                df.loc[df_idx, "last_outreach_date"] = last_outreach
+                df.loc[df_idx, "next_followup_date"] = next_followup
+
+                st.success("Marked as sent. Follow-up scheduled in 7 days.")
+                outreach_sent = True
+                just_marked_sent = True
+
+                # Auto-save update to CSV
+                df.to_csv(DATA_PATH, index=False)
 
         if outreach_sent:
             sent_count += 1
@@ -160,6 +247,19 @@ def main():
     st.sidebar.metric("Total Leads", total_leads)
     st.sidebar.metric("Outreach Sent", sent_count)
     st.sidebar.metric("Follow-Ups Due", followups_due)
+
+    # --- Activity Log ---
+    st.sidebar.subheader("📖 Activity Log")
+    with st.sidebar.expander("View Activity Log"):
+        for log_entry in st.session_state.get('activity_log', []):
+            try:
+                log_date = log_entry.split(']')[0][1:]
+                log_message = log_entry.split(']')[1].strip()
+                log_date_parsed = datetime.fromisoformat(log_date)
+                log_display = f"{log_date_parsed.strftime('%A, %B %d (%Y) %I:%M %p')}: {log_message}"
+                st.markdown(f"- {log_display}")
+            except:
+                st.markdown(f"- {log_entry}")
 
     if st.button("💾 Save All Updates"):
         for idx, row in company_df.iterrows():
