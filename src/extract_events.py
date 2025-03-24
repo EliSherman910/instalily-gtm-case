@@ -4,25 +4,53 @@ import os
 def get_event_data():
     return [
         {
+            "event": "FESPA",
+            "company": "3M",
+            "industry": "Commercial Graphics & Films",
+            "website": "https://www.3m.com",
+            "rationale": "Global leader in advanced vinyls and protective films with alignment to Tedlar signage use cases."
+        },
+        {
             "event": "ISASign Expo",
             "company": "Avery Dennison",
             "industry": "Graphics & Signage",
             "website": "https://graphics.averydennison.com",
-            "rationale": "Major player in large format signage with overlap into Tedlar applications"
+            "rationale": "Dominant player in pressure-sensitive materials and architectural signage, with direct Tedlar overlap."
         },
         {
-            "event": "FESPA Global Print Expo",
-            "company": "3M Commercial Graphics",
-            "industry": "Commercial Printing",
-            "website": "https://www.3m.com",
-            "rationale": "Produces durable vinyls and films aligned with Tedlar's protective applications"
+            "event": "Tape Week",
+            "company": "Flexcon",
+            "industry": "Adhesive Films & Industrial Graphics",
+            "website": "https://www.flexcon.com",
+            "rationale": "Specializes in durable, printable films with clear synergy to protective signage applications."
         },
         {
-            "event": "PRINTING United Expo",
+            "event": "FESPA",
+            "company": "Arlon Graphics",
+            "industry": "Vehicle Wraps & Signage",
+            "website": "https://www.arlon.com",
+            "rationale": "Focus on high-end performance wraps and flexible signage products overlaps with Tedlar value props."
+        },
+        {
+            "event": "ISASign Expo",
             "company": "Orafol",
-            "industry": "Adhesive Films & Signage",
+            "industry": "Adhesive Vinyls & Signage",
             "website": "https://www.orafol.com",
-            "rationale": "Active in vehicle wraps and weather resistant signage"
+            "rationale": "Known for weather-resistant graphic solutions across automotive and architectural signage."
+        },
+        {
+            "event": "Printing United",
+            "company": "Nekoosa",
+            "industry": "Print Media & Sign Materials",
+            "website": "https://www.nekoosa.com",
+            "rationale": "Offers specialty print substrates and signage products with shared use cases as Tedlar."
+        },
+        {
+            "event": "Craig-Hallum Alpha Select Conference",
+            "company": "LSI Industries",
+            "industry": "Lighting & Signage Solutions",
+            "website": "https://www.lsicorp.com",
+            "rationale": "Manufacturer of illuminated signage systems in commercial, retail and petroleum markets."
         }
     ]
 
@@ -37,4 +65,5 @@ def save_to_csv(data, filename="data/events_companies.csv"):
 if __name__ == "__main__":
     data = get_event_data()
     save_to_csv(data)
-    print(f"Saved {len(data)} entires to data/events_companies.csv")
+    print(f"Saved {len(data)} entries to data/events_companies.csv")
+

@@ -50,7 +50,7 @@ def process_messages(input_file="data/contacts_with_emails.csv", output_file="da
         for row in reader:
             name = row["name"]
             title = row["title"]
-            company = row["title"]
+            company = row["company"]
             outreach_method = row["outreach_method"]
             event = row.get("event", "")
             rationale = row.get("rationale", "")
